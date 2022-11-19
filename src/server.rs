@@ -53,17 +53,38 @@ impl HttpServer {
                         return Err("Invalid HTTP request".into());
                     }
 
-                    let (method, _path) = (start_parts[0], start_parts[1]);
+                    let (method, path) = (start_parts[0], start_parts[1]);
 
-                    if let Err(msg) = HttpMethod::from_str(method) {
-                        let mut res = HttpResponse::new(HttpStatus::MethodNotAllowed);
-                        res.set_header("Content-Type", "text/plain");
-                        res.set_body(msg);
+                    match HttpMethod::from_str(method) {
+                        Ok(method) => {
+                            if let HttpMethod::Get = method {
+                                let mut res = HttpResponse::new(HttpStatus::OK);
+                                res.set_header("Content-Type", "text/html");
+                                res.set_body(format!("<p>Route {path} is accessed</p>"));
 
-                        if let Err(_) = reader.write_all(res.to_string().as_bytes()).await {
-                            return Err("Failed to write response".into());
+                                if let Err(_) = reader.write_all(res.to_string().as_bytes()).await {
+                                    return Err("Failed to write response".into());
+                                }
+                            } else {
+                                let mut res = HttpResponse::new(HttpStatus::MethodNotAllowed);
+                                res.set_header("Content-Type", "text/plain");
+                                res.set_body("Method not allowed");
+
+                                if let Err(_) = reader.write_all(res.to_string().as_bytes()).await {
+                                    return Err("Failed to write response".into());
+                                }
+                            }
                         }
-                    }
+                        Err(msg) => {
+                            let mut res = HttpResponse::new(HttpStatus::MethodNotAllowed);
+                            res.set_header("Content-Type", "text/plain");
+                            res.set_body(msg);
+
+                            if let Err(_) = reader.write_all(res.to_string().as_bytes()).await {
+                                return Err("Failed to write response".into());
+                            }
+                        }
+                    };
 
                     Ok(())
                 });
