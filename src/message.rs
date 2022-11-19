@@ -24,12 +24,12 @@ impl AsRef<str> for HttpMethod {
 }
 
 impl FromStr for HttpMethod {
-    type Err = Self;
+    type Err = &'static str;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
             "GET" => Ok(Self::Get),
-            _ => Err(Self::Invalid),
+            _ => Err("Invalid HTTP method"),
         }
     }
 }
