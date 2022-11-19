@@ -5,7 +5,7 @@ use tokio::{
     net::TcpListener,
 };
 
-use crate::message::HttpMethod;
+use crate::message::{HttpMethod, HttpResponse, HttpStatus};
 
 pub struct HttpServer {
     pub routes: HashMap<&'static str, HttpMethod>,
@@ -56,11 +56,11 @@ impl HttpServer {
                     let (method, _path) = (start_parts[0], start_parts[1]);
 
                     if let Err(msg) = HttpMethod::from_str(method) {
-                        let body = format!(
-                            "HTTP/1.1 405 Method Not Allowed\r\nContent-Type: text/plain\r\n\r\n{msg}"
-                        );
-                        println!("{body}");
-                        if let Err(_) = reader.write_all(body.as_bytes()).await {
+                        let mut res = HttpResponse::new(HttpStatus::MethodNotAllowed);
+                        res.set_header("Content-Type", "text/plain");
+                        res.body.push_str(msg);
+
+                        if let Err(_) = reader.write_all(res.to_string().as_bytes()).await {
                             return Err("Failed to write response".into());
                         }
                     }
