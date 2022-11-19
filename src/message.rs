@@ -60,11 +60,15 @@ pub struct HttpResponse {
 
 impl HttpResponse {
     pub fn new(status: HttpStatus) -> Self {
-        HttpResponse {
+        let mut res = HttpResponse {
             status,
             headers: HashMap::new(),
             body: String::new(),
-        }
+        };
+
+        res.set_header("Content-Length", "0");
+
+        res
     }
 
     pub fn set_header(&mut self, header: impl AsRef<str>, val: impl AsRef<str>) -> Option<String> {
