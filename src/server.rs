@@ -73,6 +73,7 @@ impl HttpServer {
 
                         line = String::new();
                     }
+
                     let body_len = headers
                         .get("Content-Length")
                         .unwrap()
@@ -91,15 +92,17 @@ impl HttpServer {
                                 res.set_body(format!("<p>Route {path} is accessed</p>"));
 
                                 if let Err(_) = reader.write_all(res.to_string().as_bytes()).await {
-                                    return Err("Failed to write response".into());
+                                    return Err("Failed to write response");
                                 }
                             } else if let HttpMethod::Post = method {
                                 let mut res = HttpResponse::new(HttpStatus::OK);
                                 res.set_header("Content-Type", "text/plain");
-                                res.set_body(String::from_utf8_lossy(body.as_slice()));
+
+                                let encoded = base64::encode(body);
+                                res.set_body(encoded);
 
                                 if let Err(_) = reader.write_all(res.to_string().as_bytes()).await {
-                                    return Err("Failed to write response".into());
+                                    return Err("Failed to write response");
                                 }
                             } else {
                                 let mut res = HttpResponse::new(HttpStatus::MethodNotAllowed);
@@ -107,7 +110,7 @@ impl HttpServer {
                                 res.set_body("Method not allowed");
 
                                 if let Err(_) = reader.write_all(res.to_string().as_bytes()).await {
-                                    return Err("Failed to write response".into());
+                                    return Err("Failed to write response");
                                 }
                             }
                         }
@@ -117,7 +120,7 @@ impl HttpServer {
                             res.set_body(msg);
 
                             if let Err(_) = reader.write_all(res.to_string().as_bytes()).await {
-                                return Err("Failed to write response".into());
+                                return Err("Failed to write response");
                             }
                         }
                     };
