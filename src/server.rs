@@ -1,7 +1,7 @@
 use std::{collections::HashMap, error::Error, str::FromStr};
 
 use tokio::{
-    io::{AsyncBufReadExt, AsyncWriteExt, BufReader},
+    io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader},
     net::TcpListener,
 };
 
@@ -54,6 +54,34 @@ impl HttpServer {
                     }
 
                     let (method, path) = (start_parts[0], start_parts[1]);
+                    let mut headers = HashMap::<String, String>::new();
+
+                    let mut line = String::new();
+                    loop {
+                        if let Err(_) = reader.read_line(&mut line).await {
+                            return Err("Failed to read headers");
+                        }
+                        if line == "\r\n" {
+                            break;
+                        }
+
+                        line = line.trim_end().to_string();
+                        let parts = line.split_once(": ").unwrap();
+                        let (header, val) = (parts.0.to_string(), parts.1.to_string());
+
+                        headers.insert(header, val);
+
+                        line = String::new();
+                    }
+                    let body_len = headers
+                        .get("Content-Length")
+                        .unwrap()
+                        .parse::<usize>()
+                        .unwrap();
+                    let mut body = vec![0u8; body_len];
+                    if let Err(_) = reader.read_exact(&mut body).await {
+                        return Err("Failed to read body");
+                    }
 
                     match HttpMethod::from_str(method) {
                         Ok(method) => {
@@ -61,6 +89,14 @@ impl HttpServer {
                                 let mut res = HttpResponse::new(HttpStatus::OK);
                                 res.set_header("Content-Type", "text/html");
                                 res.set_body(format!("<p>Route {path} is accessed</p>"));
+
+                                if let Err(_) = reader.write_all(res.to_string().as_bytes()).await {
+                                    return Err("Failed to write response".into());
+                                }
+                            } else if let HttpMethod::Post = method {
+                                let mut res = HttpResponse::new(HttpStatus::OK);
+                                res.set_header("Content-Type", "text/plain");
+                                res.set_body(String::from_utf8_lossy(body.as_slice()));
 
                                 if let Err(_) = reader.write_all(res.to_string().as_bytes()).await {
                                     return Err("Failed to write response".into());

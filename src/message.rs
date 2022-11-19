@@ -2,12 +2,14 @@ use std::{collections::HashMap, fmt::Display, str::FromStr};
 
 pub enum HttpMethod {
     Get,
+    Post,
 }
 
 impl AsRef<str> for HttpMethod {
     fn as_ref(&self) -> &str {
         match *self {
             Self::Get => "GET",
+            Self::Post => "POST",
         }
     }
 }
@@ -18,8 +20,48 @@ impl FromStr for HttpMethod {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
             "GET" => Ok(Self::Get),
+            "POST" => Ok(Self::Post),
             _ => Err("Invalid HTTP method"),
         }
+    }
+}
+
+pub struct HttpRequest {
+    method: HttpMethod,
+    path: String,
+    headers: HashMap<String, String>,
+    body: String,
+}
+
+impl HttpRequest {
+    pub fn new(
+        method: HttpMethod,
+        path: String,
+        headers: HashMap<String, String>,
+        body: String,
+    ) -> Self {
+        Self {
+            method,
+            path,
+            headers,
+            body,
+        }
+    }
+
+    pub fn method(&self) -> &HttpMethod {
+        &self.method
+    }
+
+    pub fn headers(&self) -> &HashMap<String, String> {
+        &self.headers
+    }
+
+    pub fn body(&self) -> &String {
+        &self.body
+    }
+
+    pub fn path(&self) -> &String {
+        &self.path
     }
 }
 
