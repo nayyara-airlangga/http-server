@@ -55,7 +55,7 @@ impl AsRef<str> for HttpStatus {
 pub struct HttpResponse {
     pub status: HttpStatus,
     headers: HashMap<String, String>,
-    pub body: String,
+    body: String,
 }
 
 impl HttpResponse {
@@ -74,6 +74,11 @@ impl HttpResponse {
 
     pub fn remove_header(&mut self, header: impl AsRef<str>) -> Option<String> {
         self.headers.remove(header.as_ref())
+    }
+
+    pub fn set_body(&mut self, body: impl AsRef<str>) {
+        self.set_header("Content-Length", body.as_ref().as_bytes().len().to_string());
+        self.body = body.as_ref().to_string();
     }
 }
 

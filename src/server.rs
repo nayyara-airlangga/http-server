@@ -58,7 +58,7 @@ impl HttpServer {
                     if let Err(msg) = HttpMethod::from_str(method) {
                         let mut res = HttpResponse::new(HttpStatus::MethodNotAllowed);
                         res.set_header("Content-Type", "text/plain");
-                        res.body.push_str(msg);
+                        res.set_body(msg);
 
                         if let Err(_) = reader.write_all(res.to_string().as_bytes()).await {
                             return Err("Failed to write response".into());
