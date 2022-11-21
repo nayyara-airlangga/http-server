@@ -1,4 +1,10 @@
-use std::{collections::HashMap, fmt::Display, str::FromStr};
+use std::{collections::HashMap, fmt::Display, str::FromStr, sync::Arc};
+
+use tokio::{
+    io::{AsyncBufReadExt, AsyncReadExt, BufReader},
+    net::TcpStream,
+    sync::Mutex,
+};
 
 pub enum HttpMethod {
     Get,
@@ -29,6 +35,7 @@ impl FromStr for HttpMethod {
 pub struct HttpRequest {
     method: HttpMethod,
     path: String,
+    version: String,
     headers: HashMap<String, String>,
     body: String,
 }
@@ -37,12 +44,14 @@ impl HttpRequest {
     pub fn new(
         method: HttpMethod,
         path: String,
+        version: String,
         headers: HashMap<String, String>,
         body: String,
     ) -> Self {
         Self {
             method,
             path,
+            version,
             headers,
             body,
         }
@@ -62,6 +71,116 @@ impl HttpRequest {
 
     pub fn path(&self) -> &String {
         &self.path
+    }
+
+    pub fn version(&self) -> &String {
+        &self.version
+    }
+
+    pub async fn from_stream_reader(
+        reader: Arc<Mutex<BufReader<TcpStream>>>,
+    ) -> Result<Self, &'static str> {
+        let mut start = String::new();
+        let (method, path, version) = parse_start(Arc::clone(&reader), &mut start).await?;
+
+        let mut line = String::new();
+        let headers = parse_headers(Arc::clone(&reader), &mut line).await?;
+
+        let body_len = headers
+            .get("Content-Length")
+            .unwrap_or(&"0".to_string())
+            .parse::<usize>()
+            .unwrap();
+        let body = vec![0u8; body_len];
+        let body = parse_body(Arc::clone(&reader), body).await?;
+
+        let method = HttpMethod::from_str(method)?;
+        Ok(Self {
+            method,
+            path: path.to_string(),
+            version: version.to_string(),
+            headers,
+            body: String::from_utf8_lossy(body.as_slice()).to_string(),
+        })
+    }
+}
+
+pub async fn parse_start<'start>(
+    reader: Arc<Mutex<BufReader<TcpStream>>>,
+    start: &'start mut String,
+) -> Result<(&'start str, &'start str, &'start str), &'static str> {
+    let mut reader = reader.lock().await;
+
+    if let Err(_) = reader.read_line(start).await {
+        return Err("Failed to read startline");
+    }
+    let start_parts = start.split_whitespace().collect::<Vec<&str>>();
+
+    if start_parts.len() != 3 {
+        return Err("Invalid HTTP request".into());
+    }
+
+    Ok((start_parts[0], start_parts[1], start_parts[2]))
+}
+
+pub async fn parse_headers(
+    reader: Arc<Mutex<BufReader<TcpStream>>>,
+    line: &mut String,
+) -> Result<HashMap<String, String>, &'static str> {
+    let mut reader = reader.lock().await;
+    let mut headers = HashMap::<String, String>::new();
+
+    loop {
+        if let Err(_) = reader.read_line(line).await {
+            return Err("Failed to read headers");
+        }
+        if *line == "\r\n" {
+            break;
+        }
+
+        *line = line.trim_end().to_string();
+        let parts = line.split_once(": ").unwrap();
+        let (header, val) = (parts.0.to_string(), parts.1.to_string());
+
+        headers.insert(header, val);
+
+        *line = String::new();
+    }
+
+    Ok(headers)
+}
+
+pub async fn parse_body(
+    reader: Arc<Mutex<BufReader<TcpStream>>>,
+    mut body: Vec<u8>,
+) -> Result<Vec<u8>, &'static str> {
+    let mut reader = reader.lock().await;
+
+    if let Err(_) = reader.read_exact(&mut body).await {
+        return Err("Failed to read body");
+    }
+    Ok(body)
+}
+
+impl Display for HttpRequest {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut message = String::new();
+        let start = format!(
+            "{} {} {}\r\n",
+            self.method.as_ref(),
+            self.path,
+            self.version
+        );
+        message.push_str(&start);
+
+        for (k, v) in self.headers.iter() {
+            let header_str = format!("{}: {}\r\n", k, v);
+            message.push_str(&header_str)
+        }
+        message.push_str("\r\n");
+        message.push_str(&self.body);
+
+        write!(f, "{message}")
     }
 }
 
