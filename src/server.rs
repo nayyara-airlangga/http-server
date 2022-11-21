@@ -8,7 +8,7 @@ use tokio::{
 
 use crate::{
     message::{HttpMethod, HttpRequest, HttpResponse, HttpStatus},
-    router::{AsyncFnBox, Router},
+    router::Router,
 };
 
 pub struct HttpServer {
@@ -62,7 +62,7 @@ impl HttpServer {
                     if let Some(route) = route {
                         let methods = route.methods().clone();
                         if let Some(handler) = methods.get(req.method().as_ref()) {
-                            let res = handler.call_box(req).await;
+                            let res = handler.call(req).await;
 
                             if let Err(_) = reader.write_all(res.to_string().as_bytes()).await {
                                 return Err("Failed to write response");
