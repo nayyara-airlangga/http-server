@@ -56,7 +56,7 @@ impl HttpServer {
                     let mut reader = reader.lock().await;
 
                     let router = router.lock().await;
-                    let route = router.routes().clone().get(req.path().as_str());
+                    let route = router.routes().get(req.path().as_str());
                     if let Some(route) = route {
                         let methods = route.methods().clone();
                         if let Some(handler) = methods.get(req.method().as_ref()) {
