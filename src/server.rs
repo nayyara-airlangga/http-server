@@ -67,6 +67,14 @@ impl HttpServer {
                             if let Err(_) = reader.write_all(res.to_string().as_bytes()).await {
                                 return Err("Failed to write response");
                             }
+                        } else {
+                            let mut res = HttpResponse::new(HttpStatus::MethodNotAllowed);
+                            res.set_header("Content-Type", "text/plain");
+                            res.set_body("Method not allowed");
+
+                            if let Err(_) = reader.write_all(res.to_string().as_bytes()).await {
+                                return Err("Failed to write response");
+                            }
                         }
                     } else {
                         let mut res = HttpResponse::new(HttpStatus::NotFound);
