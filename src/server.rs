@@ -6,9 +6,13 @@ use tokio::{
     sync::Mutex,
 };
 
-use crate::message::{HttpMethod, HttpRequest, HttpResponse, HttpStatus};
+use crate::{
+    message::{HttpMethod, HttpRequest, HttpResponse, HttpStatus},
+    router::Router,
+};
 
 pub struct HttpServer {
+    pub router: Router,
     pub routes: HashMap<&'static str, HttpMethod>,
     pub listener: Option<TcpListener>,
 }
@@ -16,9 +20,15 @@ pub struct HttpServer {
 impl HttpServer {
     pub fn new() -> Self {
         Self {
+            router: Router::new(),
             routes: HashMap::new(),
             listener: None,
         }
+    }
+
+    pub fn serve(mut self, router: Router) -> Self {
+        self.router = router;
+        self
     }
 
     pub async fn bind(
