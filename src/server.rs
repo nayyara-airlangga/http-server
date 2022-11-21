@@ -1,4 +1,4 @@
-use std::{collections::HashMap, error::Error, sync::Arc};
+use std::{error::Error, sync::Arc};
 
 use tokio::{
     io::{AsyncWriteExt, BufReader},
@@ -7,13 +7,12 @@ use tokio::{
 };
 
 use crate::{
-    message::{HttpMethod, HttpRequest, HttpResponse, HttpStatus},
+    message::{HttpRequest, HttpResponse, HttpStatus},
     router::Router,
 };
 
 pub struct HttpServer {
     pub router: Arc<Mutex<Router>>,
-    pub routes: HashMap<&'static str, HttpMethod>,
     pub listener: Option<TcpListener>,
 }
 
@@ -21,7 +20,6 @@ impl HttpServer {
     pub fn new() -> Self {
         Self {
             router: Arc::new(Mutex::new(Router::new())),
-            routes: HashMap::new(),
             listener: None,
         }
     }
