@@ -1,19 +1,26 @@
 use http_server::{
     message::{HttpRequest, HttpResponse, HttpStatus},
-    router::{Route, Router},
+    router::{get, Router},
     server::HttpServer,
 };
 
-async fn lol(_req: HttpRequest) -> HttpResponse {
+async fn get_handler(_req: HttpRequest) -> HttpResponse {
     let mut res = HttpResponse::new(HttpStatus::OK);
     res.set_header("Content-Type", "text/plain");
     res.set_body("LOLOLOL");
     res
 }
 
+async fn post_handler(req: HttpRequest) -> HttpResponse {
+    let mut res = HttpResponse::new(HttpStatus::OK);
+    res.set_header("Content-Type", "text/plain");
+    res.set_body(req.body());
+    res
+}
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let router = Router::new().route("/mabar", Route::new().get(lol).get(lol));
+    let router = Router::new().route("/mabar", get(get_handler).post(post_handler));
 
     let server = HttpServer::new()
         .serve(router)

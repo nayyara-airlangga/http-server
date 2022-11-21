@@ -8,11 +8,11 @@ use tokio::{
 
 use crate::{
     message::{HttpMethod, HttpRequest, HttpResponse, HttpStatus},
-    router::Router,
+    router::{AsyncFnBox, Router},
 };
 
 pub struct HttpServer {
-    pub router: Router,
+    pub router: Arc<Mutex<Router>>,
     pub routes: HashMap<&'static str, HttpMethod>,
     pub listener: Option<TcpListener>,
 }
@@ -20,14 +20,14 @@ pub struct HttpServer {
 impl HttpServer {
     pub fn new() -> Self {
         Self {
-            router: Router::new(),
+            router: Arc::new(Mutex::new(Router::new())),
             routes: HashMap::new(),
             listener: None,
         }
     }
 
     pub fn serve(mut self, router: Router) -> Self {
-        self.router = router;
+        self.router = Arc::new(Mutex::new(router));
         self
     }
 
@@ -51,33 +51,32 @@ impl HttpServer {
                 println!("Connection established from {address}");
 
                 let reader = Arc::new(Mutex::new(BufReader::new(stream)));
+                let router = Arc::clone(&self.router);
 
                 tokio::spawn(async move {
                     let req = HttpRequest::from_stream_reader(Arc::clone(&reader)).await?;
-
                     let mut reader = reader.lock().await;
-                    match req.method() {
-                        HttpMethod::Get => {
-                            let mut res = HttpResponse::new(HttpStatus::OK);
-                            res.set_header("Content-Type", "text/html");
-                            res.set_body(format!("<p>Route {} is accessed</p>", req.path()));
+
+                    let router = router.lock().await;
+                    let route = router.routes().clone().get(req.path().as_str());
+                    if let Some(route) = route {
+                        let methods = route.methods().clone();
+                        if let Some(handler) = methods.get(req.method().as_ref()) {
+                            let res = handler.call_box(req).await;
 
                             if let Err(_) = reader.write_all(res.to_string().as_bytes()).await {
                                 return Err("Failed to write response");
                             }
                         }
-                        HttpMethod::Post => {
-                            let mut res = HttpResponse::new(HttpStatus::OK);
-                            res.set_header("Content-Type", "text/plain");
+                    } else {
+                        let mut res = HttpResponse::new(HttpStatus::NotFound);
+                        res.set_header("Content-Type", "text/plain");
+                        res.set_body("Page not found");
 
-                            let encoded = base64::encode(req.body());
-                            res.set_body(encoded);
-
-                            if let Err(_) = reader.write_all(res.to_string().as_bytes()).await {
-                                return Err("Failed to write response");
-                            }
+                        if let Err(_) = reader.write_all(res.to_string().as_bytes()).await {
+                            return Err("Failed to write response");
                         }
-                    };
+                    }
 
                     Ok(())
                 });
