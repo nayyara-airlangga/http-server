@@ -2,24 +2,6 @@ use std::{collections::HashMap, future::Future, pin::Pin};
 
 use crate::message::{HttpMethod, HttpRequest, HttpResponse};
 
-pub(crate) trait AsyncFn {
-    type Fut: Future<Output = HttpResponse> + Send;
-
-    fn call_fn(&self, req: HttpRequest) -> Self::Fut;
-}
-
-impl<F, Fut> AsyncFn for F
-where
-    F: Fn(HttpRequest) -> Fut + Clone + Send + Sync + 'static,
-    Fut: Future<Output = HttpResponse> + Send + 'static,
-{
-    type Fut = Pin<Box<dyn Future<Output = HttpResponse> + Send + 'static>>;
-
-    fn call_fn(&self, req: HttpRequest) -> Self::Fut {
-        Box::pin(self(req))
-    }
-}
-
 pub trait Handler: Send + Sync {
     type Fut: Future<Output = HttpResponse>;
 
@@ -34,7 +16,7 @@ where
     type Fut = Pin<Box<dyn Future<Output = HttpResponse> + Send + 'static>>;
 
     fn call(&self, req: HttpRequest) -> Self::Fut {
-        Box::pin(self.call_fn(req))
+        Box::pin(self(req))
     }
 }
 
