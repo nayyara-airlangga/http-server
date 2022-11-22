@@ -1,5 +1,5 @@
 use http_server::{
-    message::{HttpRequest, HttpResponse, HttpStatus},
+    message::{HttpRequest, HttpResponse, HttpStatus, IntoResponse},
     router::{get, Router},
     server::HttpServer,
 };
@@ -25,10 +25,15 @@ async fn index(_req: HttpRequest) -> HttpResponse {
     res
 }
 
+async fn string_hn(_req: HttpRequest) -> impl IntoResponse {
+    "Lol"
+}
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let router = Router::new()
         .route("/", get(index))
+        .route("/lol", get(string_hn))
         .route("/mabar", get(get_handler).post(post_handler));
 
     let server = HttpServer::new()

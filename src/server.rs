@@ -9,6 +9,7 @@ use tokio::{
 use crate::{
     message::{HttpRequest, HttpResponse, HttpStatus},
     router::Router,
+    service::Service,
 };
 
 pub struct HttpServer {

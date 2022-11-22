@@ -1,30 +1,12 @@
 use std::{collections::HashMap, future::Future, pin::Pin};
 
-use crate::message::{HttpMethod, HttpRequest, HttpResponse};
-
-pub trait Handler: Send + Sync {
-    type Fut: Future<Output = HttpResponse>;
-
-    fn call(&self, req: HttpRequest) -> Self::Fut;
-}
-
-impl<F, Fut> Handler for F
-where
-    F: Fn(HttpRequest) -> Fut + Clone + Send + Sync + 'static,
-    Fut: Future<Output = HttpResponse> + Send + 'static,
-{
-    type Fut = Pin<Box<dyn Future<Output = HttpResponse> + Send + 'static>>;
-
-    fn call(&self, req: HttpRequest) -> Self::Fut {
-        Box::pin(self(req))
-    }
-}
+use crate::{
+    message::{HttpMethod, HttpResponse},
+    service::{BoxCloneService, Handler, HandlerService},
+};
 
 pub struct Route {
-    methods: HashMap<
-        &'static str,
-        Box<dyn Handler<Fut = Pin<Box<dyn Future<Output = HttpResponse> + Send>>>>,
-    >,
+    methods: HashMap<&'static str, BoxCloneService>,
 }
 
 impl Route {
@@ -34,53 +16,58 @@ impl Route {
         }
     }
 
-    pub fn methods(
-        &self,
-    ) -> &HashMap<
-        &'static str,
-        Box<dyn Handler<Fut = Pin<Box<dyn Future<Output = HttpResponse> + Send>>>>,
-    > {
+    pub fn methods(&self) -> &HashMap<&'static str, BoxCloneService> {
         &self.methods
     }
 
     pub fn get<H>(mut self, handler: H) -> Self
     where
-        H: Handler<Fut = Pin<Box<dyn Future<Output = HttpResponse> + Send>>> + 'static,
+        H: Handler<Fut = Pin<Box<dyn Future<Output = HttpResponse> + Send>>>
+            + Send
+            + Clone
+            + 'static,
     {
+        let handler = HandlerService::new(handler);
         self.methods
-            .insert(HttpMethod::Get.as_ref(), Box::new(handler));
+            .insert(HttpMethod::Get.as_ref(), BoxCloneService::new(handler));
         self
     }
 
     pub fn post<H>(mut self, handler: H) -> Self
     where
-        H: Handler<Fut = Pin<Box<dyn Future<Output = HttpResponse> + Send>>> + 'static,
+        H: Handler<Fut = Pin<Box<dyn Future<Output = HttpResponse> + Send>>>
+            + Send
+            + Clone
+            + 'static,
     {
+        let handler = HandlerService::new(handler);
         self.methods
-            .insert(HttpMethod::Post.as_ref(), Box::new(handler));
+            .insert(HttpMethod::Post.as_ref(), BoxCloneService::new(handler));
         self
     }
 }
 
 pub fn get<H>(handler: H) -> Route
 where
-    H: Handler<Fut = Pin<Box<dyn Future<Output = HttpResponse> + Send>>> + 'static,
+    H: Handler<Fut = Pin<Box<dyn Future<Output = HttpResponse> + Send>>> + Send + Clone + 'static,
 {
     let mut route = Route::new();
+    let handler = HandlerService::new(handler);
     route
         .methods
-        .insert(HttpMethod::Get.as_ref(), Box::new(handler));
+        .insert(HttpMethod::Get.as_ref(), BoxCloneService::new(handler));
     route
 }
 
 pub fn post<H>(handler: H) -> Route
 where
-    H: Handler<Fut = Pin<Box<dyn Future<Output = HttpResponse> + Send>>> + 'static,
+    H: Handler<Fut = Pin<Box<dyn Future<Output = HttpResponse> + Send>>> + Send + Clone + 'static,
 {
     let mut route = Route::new();
+    let handler = HandlerService::new(handler);
     route
         .methods
-        .insert(HttpMethod::Post.as_ref(), Box::new(handler));
+        .insert(HttpMethod::Post.as_ref(), BoxCloneService::new(handler));
     route
 }
 
