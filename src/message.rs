@@ -267,3 +267,25 @@ impl Display for HttpResponse {
         write!(f, "{message}")
     }
 }
+
+pub trait IntoResponse {
+    fn into_response(self) -> HttpResponse;
+}
+
+impl<A> IntoResponse for A
+where
+    A: AsRef<str>,
+{
+    fn into_response(self) -> HttpResponse {
+        let mut res = HttpResponse::new(HttpStatus::OK);
+        res.set_header("Content-Type", "text/plain");
+        res.set_body(self);
+        res
+    }
+}
+
+impl IntoResponse for HttpResponse {
+    fn into_response(self) -> HttpResponse {
+        self
+    }
+}
