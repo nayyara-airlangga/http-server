@@ -34,6 +34,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let router = Router::new()
         .route("/", get(index))
         .route("/lol", get(string_hn))
+        .route("/closure", get(|_| async { "Closures work" }))
         .route("/mabar", get(get_handler).post(post_handler));
 
     let server = HttpServer::new()
